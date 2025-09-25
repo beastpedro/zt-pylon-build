@@ -5,30 +5,29 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout meta repo
+      - name: Prepare workspace
         uses: actions/checkout@v4
 
-      - name: Fetch ZeroTier Pylon (with submodules)
-        run: |
-          git clone --recurse-submodules https://github.com/zerotier/pylon.git
-
-      # Build under aarch64 with QEMU emulation so we get a Linux/ARM64 ELF
-      - name: Build in aarch64 userland
+      - name: Build in aarch64 userland (QEMU)
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu20.04   # older glibc for better device compatibility
+          distro: ubuntu20.04    # older glibc => better compatibility on router
           install: |
             apt-get update
             apt-get install -y build-essential clang cmake git pkg-config
           run: |
+            set -eux
+            cd /tmp
+            git clone --recurse-submodules https://github.com/zerotier/pylon.git
             cd pylon
-            make -j
+            make -j"$(nproc)"
             strip pylon || true
-            ls -l pylon
+            mkdir -p "$GITHUB_WORKSPACE/out"
+            cp -f pylon "$GITHUB_WORKSPACE/out/pylon"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pylon-aarch64
-          path: pylon/pylon
+          path: out/pylon
