@@ -1,0 +1,34 @@
+name: build-zt-pylon-aarch64
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout meta repo
+        uses: actions/checkout@v4
+
+      - name: Fetch ZeroTier Pylon (with submodules)
+        run: |
+          git clone --recurse-submodules https://github.com/zerotier/pylon.git
+
+      # Build under aarch64 with QEMU emulation so we get a Linux/ARM64 ELF
+      - name: Build in aarch64 userland
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu20.04   # older glibc for better device compatibility
+          install: |
+            apt-get update
+            apt-get install -y build-essential clang cmake git pkg-config
+          run: |
+            cd pylon
+            make -j
+            strip pylon || true
+            ls -l pylon
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pylon-aarch64
+          path: pylon/pylon
