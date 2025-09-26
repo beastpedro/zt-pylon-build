@@ -3,32 +3,23 @@ on: workflow_dispatch
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm64   # << native arm64 (no QEMU!)
     steps:
-      - name: Checkout tiny host repo
-        uses: actions/checkout@v4
-
-      - name: Build in aarch64 userland (QEMU)
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: aarch64
-          distro: ubuntu20.04    # older glibc => safer on the router
-          install: |
-            apt-get update
-            apt-get install -y build-essential clang cmake git pkg-config
-          run: |
-            set -eux
-            # allow any git path (belt & suspenders)
-            git config --global --add safe.directory '*'
-            # clone INSIDE the container, not in $GITHUB_WORKSPACE
-            cd /tmp
-            git clone --recurse-submodules https://github.com/zerotier/pylon.git
-            cd pylon
-            make -j"$(nproc)"
-            strip pylon || true
-            mkdir -p "$GITHUB_WORKSPACE/out"
-            cp -f pylon "$GITHUB_WORKSPACE/out/pylon"
-
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake git pkg-config
+      - name: Clone Pylon (with submodules)
+        run: git clone --recurse-submodules https://github.com/zerotier/pylon.git
+      - name: Build
+        run: |
+          set -eux
+          cd pylon
+          make -j"$(nproc)"
+          strip pylon || true
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp -f pylon "$GITHUB_WORKSPACE/out/pylon"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
